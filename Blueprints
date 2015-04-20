@@ -30,7 +30,7 @@ java_library_host {
     name: "jarjar",
     tags: ["optional"],
     manifest: "manifest.txt",
-    resource_dirs: ["res"],
+    java_resource_dirs: ["res"],
 }
 
 //#################################################
