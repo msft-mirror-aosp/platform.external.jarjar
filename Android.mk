@@ -21,7 +21,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src/main)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     asm-5.0 \
-    jarjar-asm-commons \
+    asm-commons-5.0 \
 
 LOCAL_JAVA_LIBRARIES := \
     jarjar-maven-plugin-api \
