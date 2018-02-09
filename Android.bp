@@ -20,8 +20,8 @@ java_library_host {
     java_resource_dirs: ["res"],
 
     static_libs: [
-        "asm-5.2",
-        "asm-commons-5.2",
+        "asm-6.0",
+        "asm-commons-6.0",
     ],
 
     libs: [
