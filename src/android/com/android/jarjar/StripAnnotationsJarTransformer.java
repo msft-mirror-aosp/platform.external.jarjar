@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
  */
 public final class StripAnnotationsJarTransformer extends JarTransformer {
 
-    private static int ASM_VERSION = Opcodes.ASM7;
+    private static int ASM_VERSION = Opcodes.ASM9;
 
     private final List<String> stripAnnotationList;
 
