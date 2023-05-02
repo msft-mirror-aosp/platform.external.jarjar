@@ -143,6 +143,10 @@ class Wildcard
       if (expr.endsWith("package-info")) {
           expr = expr.substring(0, expr.length() - "package-info".length());
       }
+      // Android-changed: also include module-info
+      if (expr.endsWith("module-info")) {
+          expr = expr.substring(0, expr.length() - "module-info".length());
+      }
       for (int i = 0, len = expr.length(); i < len; i++) {
           char c = expr.charAt(i);
           if (extra.indexOf(c) >= 0)
