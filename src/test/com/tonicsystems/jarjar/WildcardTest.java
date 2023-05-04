@@ -30,10 +30,12 @@ extends TestCase
         wildcard("net/sf/cglib/**", "foo/@1", "net/sf/cglib/!", null);
         wildcard("net/sf/cglib/*", "foo/@1", "net/sf/cglib/Bar", "foo/Bar");
         wildcard("net/sf/cglib/*/*", "foo/@2/@1", "net/sf/cglib/Bar/Baz", "foo/Baz/Bar");
+        wildcard("**/package-info", "bar/baz/@1/package-info", "foo/package-info", "bar/baz/foo/package-info");
+        wildcard("**/module-info", "bar/baz/@1/module-info", "foo/module-info", "bar/baz/foo/module-info");
     }
 
     private void wildcard(String pattern, String result, String value, String expect) {
-        Wildcard wc = new Wildcard(pattern, result);
+        Wildcard wc = new Wildcard(pattern, result, 0);
         // System.err.println(wc);
         assertEquals(expect, wc.replace(value));
     }
