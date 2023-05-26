@@ -24,7 +24,8 @@ import org.objectweb.asm.ClassWriter;
 abstract public class JarTransformer implements JarProcessor
 {
     public boolean process(EntryStruct struct) throws IOException {
-        if (struct.name.endsWith(".class")) {
+        // Android-changed: exclude META-INF files, so they don't get moved into the root.
+        if (struct.name.endsWith(".class") && !struct.name.startsWith("META-INF")) {
             ClassReader reader;
             try {
                 reader = new ClassReader(struct.data);
