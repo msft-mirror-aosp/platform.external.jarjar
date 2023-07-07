@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,46 +23,41 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.commons.Remapper;
 
-import java.util.Set;
+import java.util.List;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
- * A transformer that removes annotations from repackaged classes.
+ * A transformer that strips annotations from all classes based on custom rules.
  */
-public final class RemoveAndroidCompatAnnotationsJarTransformer extends JarTransformer {
+public final class StripAnnotationsJarTransformer extends JarTransformer {
 
     private static int ASM_VERSION = Opcodes.ASM9;
 
-    private static final Set<String> REMOVE_ANNOTATIONS = Set.of(
-            "Landroid/compat/annotation/UnsupportedAppUsage;");
+    private final List<String> stripAnnotationList;
 
-    private final Remapper remapper;
-
-    public RemoveAndroidCompatAnnotationsJarTransformer(Remapper remapper) {
-        this.remapper = remapper;
+    public StripAnnotationsJarTransformer(List<StripAnnotation> stripAnnotationList) {
+        this.stripAnnotationList = getAnnotationList(stripAnnotationList);
     }
 
+    private static List<String> getAnnotationList(List<StripAnnotation> stripAnnotationList) {
+        return stripAnnotationList.stream().map(el -> getClassName(el)).collect(Collectors.toList());
+    }
+
+    private static String getClassName(StripAnnotation element) {
+        return "L" + element.getPattern().replace('.', '/') + ";";
+    }
+
+    @Override
     protected ClassVisitor transform(ClassVisitor classVisitor) {
         return new AnnotationRemover(classVisitor);
     }
 
     private class AnnotationRemover extends ClassVisitor {
 
-        private boolean isClassRemapped;
-
         AnnotationRemover(ClassVisitor cv) {
             super(ASM_VERSION, cv);
-        }
-
-        @Override
-        public void visit(int version, int access, String name, String signature, String superName,
-                String[] interfaces) {
-            String newName = remapper.map(name);
-            // On every new class header visit, remember whether the class is repackaged.
-            isClassRemapped = newName != null && !newName.equals(name);
-            super.visit(version, access, name, signature, superName, interfaces);
         }
 
         @Override
@@ -97,19 +92,23 @@ public final class RemoveAndroidCompatAnnotationsJarTransformer extends JarTrans
                     return visitAnnotationCommon(descriptor,
                             () -> super.visitAnnotation(descriptor, visible));
                 }
+
+                @Override
+                public AnnotationVisitor visitParameterAnnotation(int parameter,
+                        String descriptor, boolean visible) {
+                    return visitAnnotationCommon(descriptor,
+                            () -> super.visitParameterAnnotation(parameter, descriptor, visible));
+                }
             };
         }
 
         /**
          * Create an {@link AnnotationVisitor} that removes any annotations from {@link
-         * #REMOVE_ANNOTATIONS} if the class is being repackaged.
-         *
-         * <p>For the annotations to be dropped correctly, do not visit the annotation beforehand,
-         * provide a supplier instead.
+         * #stripAnnotationList}.
          */
         private AnnotationVisitor visitAnnotationCommon(String annotation,
                 Supplier<AnnotationVisitor> defaultVisitorSupplier) {
-            if (isClassRemapped && REMOVE_ANNOTATIONS.contains(annotation)) {
+            if (stripAnnotationList.contains(annotation)) {
                 return null;
             }
             // Only get() the default AnnotationVisitor if the annotation is to be included.
