@@ -17,7 +17,8 @@
 package com.android.jarjar;
 
 import com.tonicsystems.jarjar.util.JarTransformer;
-
+import java.util.Set;
+import java.util.function.Supplier;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -25,98 +26,95 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.Remapper;
 
-import java.util.Set;
-import java.util.function.Supplier;
-
-/**
- * A transformer that removes annotations from repackaged classes.
- */
+/** A transformer that removes annotations from repackaged classes. */
 public final class RemoveAndroidCompatAnnotationsJarTransformer extends JarTransformer {
 
-    private static int ASM_VERSION = Opcodes.ASM9;
+  private static int ASM_VERSION = Opcodes.ASM9;
 
-    private static final Set<String> REMOVE_ANNOTATIONS = Set.of(
-            "Landroid/compat/annotation/UnsupportedAppUsage;");
+  private static final Set<String> REMOVE_ANNOTATIONS =
+      Set.of("Landroid/compat/annotation/UnsupportedAppUsage;");
 
-    private final Remapper remapper;
+  private final Remapper remapper;
 
-    public RemoveAndroidCompatAnnotationsJarTransformer(Remapper remapper) {
-        this.remapper = remapper;
+  public RemoveAndroidCompatAnnotationsJarTransformer(Remapper remapper) {
+    this.remapper = remapper;
+  }
+
+  protected ClassVisitor transform(ClassVisitor classVisitor) {
+    return new AnnotationRemover(classVisitor);
+  }
+
+  private class AnnotationRemover extends ClassVisitor {
+
+    private boolean isClassRemapped;
+
+    AnnotationRemover(ClassVisitor cv) {
+      super(ASM_VERSION, cv);
     }
 
-    protected ClassVisitor transform(ClassVisitor classVisitor) {
-        return new AnnotationRemover(classVisitor);
+    @Override
+    public void visit(
+        int version,
+        int access,
+        String name,
+        String signature,
+        String superName,
+        String[] interfaces) {
+      String newName = remapper.map(name);
+      // On every new class header visit, remember whether the class is repackaged.
+      isClassRemapped = newName != null && !newName.equals(name);
+      super.visit(version, access, name, signature, superName, interfaces);
     }
 
-    private class AnnotationRemover extends ClassVisitor {
+    @Override
+    public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+      return visitAnnotationCommon(descriptor, () -> super.visitAnnotation(descriptor, visible));
+    }
 
-        private boolean isClassRemapped;
-
-        AnnotationRemover(ClassVisitor cv) {
-            super(ASM_VERSION, cv);
-        }
-
-        @Override
-        public void visit(int version, int access, String name, String signature, String superName,
-                String[] interfaces) {
-            String newName = remapper.map(name);
-            // On every new class header visit, remember whether the class is repackaged.
-            isClassRemapped = newName != null && !newName.equals(name);
-            super.visit(version, access, name, signature, superName, interfaces);
-        }
-
+    @Override
+    public FieldVisitor visitField(
+        int access, String name, String descriptor, String signature, Object value) {
+      FieldVisitor superVisitor = super.visitField(access, name, descriptor, signature, value);
+      return new FieldVisitor(ASM_VERSION, superVisitor) {
         @Override
         public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-            return visitAnnotationCommon(descriptor,
-                    () -> super.visitAnnotation(descriptor, visible));
+          return visitAnnotationCommon(
+              descriptor, () -> super.visitAnnotation(descriptor, visible));
         }
-
-        @Override
-        public FieldVisitor visitField(int access, String name, String descriptor, String signature,
-                Object value) {
-            FieldVisitor superVisitor =
-                    super.visitField(access, name, descriptor, signature, value);
-            return new FieldVisitor(ASM_VERSION, superVisitor) {
-                @Override
-                public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-                    return visitAnnotationCommon(descriptor,
-                            () -> super.visitAnnotation(descriptor, visible));
-
-                }
-            };
-        }
-
-        @Override
-        public MethodVisitor visitMethod(int access, String name, String descriptor,
-                String signature, String[] exceptions) {
-            MethodVisitor superVisitor =
-                    super.visitMethod(access, name, descriptor, signature, exceptions);
-            return new MethodVisitor(ASM_VERSION, superVisitor) {
-                @Override
-                public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-                    return visitAnnotationCommon(descriptor,
-                            () -> super.visitAnnotation(descriptor, visible));
-                }
-            };
-        }
-
-        /**
-         * Create an {@link AnnotationVisitor} that removes any annotations from {@link
-         * #REMOVE_ANNOTATIONS} if the class is being repackaged.
-         *
-         * <p>For the annotations to be dropped correctly, do not visit the annotation beforehand,
-         * provide a supplier instead.
-         */
-        private AnnotationVisitor visitAnnotationCommon(String annotation,
-                Supplier<AnnotationVisitor> defaultVisitorSupplier) {
-            if (isClassRemapped && REMOVE_ANNOTATIONS.contains(annotation)) {
-                return null;
-            }
-            // Only get() the default AnnotationVisitor if the annotation is to be included.
-            // Invoking super.visitAnnotation(descriptor, visible) causes the annotation to be
-            // included in the output even if the resulting AnnotationVisitor is not returned or
-            // used.
-            return defaultVisitorSupplier.get();
-        }
+      };
     }
+
+    @Override
+    public MethodVisitor visitMethod(
+        int access, String name, String descriptor, String signature, String[] exceptions) {
+      MethodVisitor superVisitor =
+          super.visitMethod(access, name, descriptor, signature, exceptions);
+      return new MethodVisitor(ASM_VERSION, superVisitor) {
+        @Override
+        public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+          return visitAnnotationCommon(
+              descriptor, () -> super.visitAnnotation(descriptor, visible));
+        }
+      };
+    }
+
+    /**
+     * Create an {@link AnnotationVisitor} that removes any annotations from {@link
+     * #REMOVE_ANNOTATIONS} if the class is being repackaged.
+     *
+     * <p>For the annotations to be dropped correctly, do not visit the annotation beforehand,
+     * provide a supplier instead.
+     */
+    private AnnotationVisitor visitAnnotationCommon(
+        String annotation, Supplier<AnnotationVisitor> defaultVisitorSupplier) {
+      if (isClassRemapped && REMOVE_ANNOTATIONS.contains(annotation)) {
+        return null;
+      }
+      // Only get() the default AnnotationVisitor if the annotation is to be included.
+      // Invoking super.visitAnnotation(descriptor, visible) causes the annotation to be
+      // included in the output even if the resulting AnnotationVisitor is not returned or
+      // used.
+      return defaultVisitorSupplier.get();
+    }
+  }
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2007 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,9 +16,19 @@
 
 package com.tonicsystems.jarjar;
 
-import com.tonicsystems.jarjar.util.*;
-import java.io.*;
-import java.util.*;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.tonicsystems.jarjar.util.RuntimeIOException;
+import com.tonicsystems.jarjar.util.StandaloneJarProcessor;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.util.List;
 
 public class Main {
 
@@ -34,17 +44,14 @@ public class Main {
   }
 
   private static String readIntoString(InputStream in) throws IOException {
-      StringBuilder sb = new StringBuilder();
-      BufferedReader r = new BufferedReader(new InputStreamReader(in, "UTF-8"));
-      String line = null;
-      while ((line = r.readLine()) != null)
-          sb.append(line).append(LINE_SEPARATOR);
-      return sb.toString();
+    StringBuilder sb = new StringBuilder();
+    BufferedReader r = new BufferedReader(new InputStreamReader(in, UTF_8));
+    String line = null;
+    while ((line = r.readLine()) != null) {
+      sb.append(line).append(LINE_SEPARATOR);
+    }
+    return sb.toString();
   }
-
-  private boolean verbose;
-  private List patterns;
-  private int level = DepHandler.LEVEL_CLASS;
 
   public static void main(String[] args) throws Exception {
     MainUtil.runMain(new Main(), args, "help");
@@ -58,7 +65,8 @@ public class Main {
     if (cp == null) {
       throw new IllegalArgumentException("cp is required");
     }
-    new StringDumper().run(cp, new PrintWriter(System.out));
+    new StringDumper()
+        .run(cp, new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.out, UTF_8))));
   }
 
   // TODO: make level an enum
@@ -77,7 +85,7 @@ public class Main {
     } else {
       throw new IllegalArgumentException("unknown level " + level);
     }
-    PrintWriter w = new PrintWriter(System.out);
+    PrintWriter w = new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.out, UTF_8)));
     DepHandler handler = new TextDepHandler(w, levelFlag);
     new DepFind().run(cp1, cp2, handler);
     w.flush();
@@ -92,8 +100,8 @@ public class Main {
     boolean skipManifest = Boolean.getBoolean("skipManifest");
     // ANDROID-BEGIN: b/146418363 Add an Android-specific transformer to strip compat annotation
     boolean removeAndroidCompatAnnotations = Boolean.getBoolean("removeAndroidCompatAnnotations");
-    MainProcessor proc = new MainProcessor(rules, verbose, skipManifest,
-            removeAndroidCompatAnnotations);
+    MainProcessor proc =
+        new MainProcessor(rules, verbose, skipManifest, removeAndroidCompatAnnotations);
     // ANDROID-END: b/146418363 Add an Android-specific transformer to strip compat annotation
     StandaloneJarProcessor.run(inJar, outJar, proc);
     proc.strip(outJar);
