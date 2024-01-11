@@ -17,105 +17,98 @@
 package com.android.jarjar;
 
 import com.tonicsystems.jarjar.util.JarTransformer;
-
+import java.util.List;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-import java.util.List;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-
-/**
- * A transformer that strips annotations from all classes based on custom rules.
- */
+/** A transformer that strips annotations from all classes based on custom rules. */
 public final class StripAnnotationsJarTransformer extends JarTransformer {
 
-    private static int ASM_VERSION = Opcodes.ASM9;
+  private static int ASM_VERSION = Opcodes.ASM9;
 
-    private final List<String> stripAnnotationList;
+  private final List<String> stripAnnotationList;
 
-    public StripAnnotationsJarTransformer(List<StripAnnotation> stripAnnotationList) {
-        this.stripAnnotationList = getAnnotationList(stripAnnotationList);
-    }
+  public StripAnnotationsJarTransformer(List<StripAnnotation> stripAnnotationList) {
+    this.stripAnnotationList = getAnnotationList(stripAnnotationList);
+  }
 
-    private static List<String> getAnnotationList(List<StripAnnotation> stripAnnotationList) {
-        return stripAnnotationList.stream().map(el -> getClassName(el)).collect(Collectors.toList());
-    }
+  private static List<String> getAnnotationList(List<StripAnnotation> stripAnnotationList) {
+    return stripAnnotationList.stream().map(el -> getClassName(el)).collect(Collectors.toList());
+  }
 
-    private static String getClassName(StripAnnotation element) {
-        return "L" + element.getPattern().replace('.', '/') + ";";
+  private static String getClassName(StripAnnotation element) {
+    return "L" + element.getPattern().replace('.', '/') + ";";
+  }
+
+  @Override
+  protected ClassVisitor transform(ClassVisitor classVisitor) {
+    return new AnnotationRemover(classVisitor);
+  }
+
+  private class AnnotationRemover extends ClassVisitor {
+
+    AnnotationRemover(ClassVisitor cv) {
+      super(ASM_VERSION, cv);
     }
 
     @Override
-    protected ClassVisitor transform(ClassVisitor classVisitor) {
-        return new AnnotationRemover(classVisitor);
+    public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+      return visitAnnotationCommon(descriptor, () -> super.visitAnnotation(descriptor, visible));
     }
 
-    private class AnnotationRemover extends ClassVisitor {
-
-        AnnotationRemover(ClassVisitor cv) {
-            super(ASM_VERSION, cv);
-        }
-
+    @Override
+    public FieldVisitor visitField(
+        int access, String name, String descriptor, String signature, Object value) {
+      FieldVisitor superVisitor = super.visitField(access, name, descriptor, signature, value);
+      return new FieldVisitor(ASM_VERSION, superVisitor) {
         @Override
         public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-            return visitAnnotationCommon(descriptor,
-                    () -> super.visitAnnotation(descriptor, visible));
+          return visitAnnotationCommon(
+              descriptor, () -> super.visitAnnotation(descriptor, visible));
         }
-
-        @Override
-        public FieldVisitor visitField(int access, String name, String descriptor, String signature,
-                Object value) {
-            FieldVisitor superVisitor =
-                    super.visitField(access, name, descriptor, signature, value);
-            return new FieldVisitor(ASM_VERSION, superVisitor) {
-                @Override
-                public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-                    return visitAnnotationCommon(descriptor,
-                            () -> super.visitAnnotation(descriptor, visible));
-
-                }
-            };
-        }
-
-        @Override
-        public MethodVisitor visitMethod(int access, String name, String descriptor,
-                String signature, String[] exceptions) {
-            MethodVisitor superVisitor =
-                    super.visitMethod(access, name, descriptor, signature, exceptions);
-            return new MethodVisitor(ASM_VERSION, superVisitor) {
-                @Override
-                public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-                    return visitAnnotationCommon(descriptor,
-                            () -> super.visitAnnotation(descriptor, visible));
-                }
-
-                @Override
-                public AnnotationVisitor visitParameterAnnotation(int parameter,
-                        String descriptor, boolean visible) {
-                    return visitAnnotationCommon(descriptor,
-                            () -> super.visitParameterAnnotation(parameter, descriptor, visible));
-                }
-            };
-        }
-
-        /**
-         * Create an {@link AnnotationVisitor} that removes any annotations from {@link
-         * #stripAnnotationList}.
-         */
-        private AnnotationVisitor visitAnnotationCommon(String annotation,
-                Supplier<AnnotationVisitor> defaultVisitorSupplier) {
-            if (stripAnnotationList.contains(annotation)) {
-                return null;
-            }
-            // Only get() the default AnnotationVisitor if the annotation is to be included.
-            // Invoking super.visitAnnotation(descriptor, visible) causes the annotation to be
-            // included in the output even if the resulting AnnotationVisitor is not returned or
-            // used.
-            return defaultVisitorSupplier.get();
-        }
+      };
     }
+
+    @Override
+    public MethodVisitor visitMethod(
+        int access, String name, String descriptor, String signature, String[] exceptions) {
+      MethodVisitor superVisitor =
+          super.visitMethod(access, name, descriptor, signature, exceptions);
+      return new MethodVisitor(ASM_VERSION, superVisitor) {
+        @Override
+        public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+          return visitAnnotationCommon(
+              descriptor, () -> super.visitAnnotation(descriptor, visible));
+        }
+
+        @Override
+        public AnnotationVisitor visitParameterAnnotation(
+            int parameter, String descriptor, boolean visible) {
+          return visitAnnotationCommon(
+              descriptor, () -> super.visitParameterAnnotation(parameter, descriptor, visible));
+        }
+      };
+    }
+
+    /**
+     * Create an {@link AnnotationVisitor} that removes any annotations from {@link
+     * #stripAnnotationList}.
+     */
+    private AnnotationVisitor visitAnnotationCommon(
+        String annotation, Supplier<AnnotationVisitor> defaultVisitorSupplier) {
+      if (stripAnnotationList.contains(annotation)) {
+        return null;
+      }
+      // Only get() the default AnnotationVisitor if the annotation is to be included.
+      // Invoking super.visitAnnotation(descriptor, visible) causes the annotation to be
+      // included in the output even if the resulting AnnotationVisitor is not returned or
+      // used.
+      return defaultVisitorSupplier.get();
+    }
+  }
 }
