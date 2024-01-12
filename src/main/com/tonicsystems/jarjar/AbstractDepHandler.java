@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2007 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,41 +16,45 @@
 
 package com.tonicsystems.jarjar;
 
-import com.tonicsystems.jarjar.util.*;
-import java.io.*;
-import java.util.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
-abstract public class AbstractDepHandler implements DepHandler
-{
-    protected final int level;
-    private final Set<List<Object>> seenIt = new HashSet<List<Object>>();
-    
-    protected AbstractDepHandler(int level) {
-        this.level = level;
+public abstract class AbstractDepHandler implements DepHandler {
+  protected final int level;
+  private final Set<List<Object>> seenIt = new HashSet<>();
+
+  protected AbstractDepHandler(int level) {
+    this.level = level;
+  }
+
+  @Override
+  public void handle(PathClass from, PathClass to) throws IOException {
+    List<Object> pair;
+    if (level == LEVEL_JAR) {
+      pair = createPair(from.getClassPath(), to.getClassPath());
+    } else {
+      pair = createPair(from.getClassName(), to.getClassName());
     }
-    
-    public void handle(PathClass from, PathClass to) throws IOException {
-        List<Object> pair;
-        if (level == LEVEL_JAR) {
-            pair = createPair(from.getClassPath(), to.getClassPath());
-        } else {
-            pair = createPair(from.getClassName(), to.getClassName());
-        }
-        if (!seenIt.contains(pair)) {
-            seenIt.add(pair);
-            handle(pair.get(0).toString(), pair.get(1).toString());
-        }
+    if (seenIt.add(pair)) {
+      handle(pair.get(0).toString(), pair.get(1).toString());
     }
+  }
 
-    abstract protected void handle(String from, String to) throws IOException;
+  protected abstract void handle(String from, String to) throws IOException;
 
-    public void handleStart() throws IOException { }
-    public void handleEnd() throws IOException { }
+  @Override
+  public void handleStart() throws IOException {}
 
-    private static List<Object> createPair(Object o1, Object o2) {
-        List<Object> list = new ArrayList<Object>(2);
-        list.add(o1);
-        list.add(o2);
-        return list;
-    }
+  @Override
+  public void handleEnd() throws IOException {}
+
+  private static List<Object> createPair(Object o1, Object o2) {
+    List<Object> list = new ArrayList<>(2);
+    list.add(o1);
+    list.add(o2);
+    return list;
+  }
 }

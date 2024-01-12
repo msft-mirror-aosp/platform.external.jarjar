@@ -18,9 +18,5 @@ package com.android.jarjar;
 
 import com.tonicsystems.jarjar.PatternElement;
 
-/**
- * Configuration element for stripping annotations in a jar file.
- */
-public class StripAnnotation extends PatternElement
-{
-}
+/** Configuration element for stripping annotations in a jar file. */
+public class StripAnnotation extends PatternElement {}
