@@ -8,7 +8,7 @@ third_party {
     type: GIT
     value: "https://github.com/google/jarjar.git"
   }
-  version: "1.4"
-  last_upgrade_date { year: 2014 month: 6 day: 17 }
+  version: "07130d7bb682571c670ff3f1fcddcd5230a56b9d"
+  last_upgrade_date { year: 2024 month: 1 day: 10 }
   license_type: NOTICE
 }
