@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2007 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,35 +16,42 @@
 
 package com.tonicsystems.jarjar.util;
 
-import java.io.*;
+import java.io.IOException;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 
-abstract public class JarTransformer implements JarProcessor
-{
-    public boolean process(EntryStruct struct) throws IOException {
-        // Android-changed: exclude META-INF files, so they don't get moved into the root.
-        if (struct.name.endsWith(".class") && !struct.name.startsWith("META-INF")) {
-            ClassReader reader;
-            try {
-                reader = new ClassReader(struct.data);
-            } catch (Exception e) {
-                // Android-changed: Made this failure fatal to highlight class version issues.
-                // http://b/27637680
-                throw new RuntimeException("Failed to load " + struct.name, e);
-            }
-            GetNameClassWriter w = new GetNameClassWriter(ClassWriter.COMPUTE_MAXS);
-            reader.accept(transform(w), ClassReader.EXPAND_FRAMES);
-            struct.data = w.toByteArray();
-            struct.name = pathFromName(w.getClassName());
-        }
-        return true;
-    }
+public abstract class JarTransformer implements JarProcessor {
+  @Override
+  public boolean process(EntryStruct struct) throws IOException {
+    if (struct.isClass() && !struct.name.startsWith("META-INF")) {
+      ClassReader reader;
+      try {
+        reader = new ClassReader(struct.data);
+      } catch (RuntimeException e) {
+        // Android-changed: Made this failure fatal to highlight class version issues.
+        // http://b/27637680
+        throw new RuntimeException("Failed to load " + struct.name, e);
+      }
+      GetNameClassWriter w = new GetNameClassWriter(ClassWriter.COMPUTE_MAXS);
+      ClassVisitor visitor = transform(w);
+      reader.accept(visitor, ClassReader.EXPAND_FRAMES);
 
-    abstract protected ClassVisitor transform(ClassVisitor v);
-
-    private static String pathFromName(String className) {
-        return className.replace('.', '/') + ".class";
+      boolean updateData = true;
+      if (visitor instanceof RemappingClassTransformer) {
+        updateData = ((RemappingClassTransformer) visitor).didRemap();
+      }
+      if (updateData) {
+        struct.data = w.toByteArray();
+        struct.name = pathFromName(w.getClassName());
+      }
     }
+    return true;
+  }
+
+  protected abstract ClassVisitor transform(ClassVisitor v);
+
+  private static String pathFromName(String className) {
+    return className.replace('.', '/') + ".class";
+  }
 }
