@@ -57,6 +57,16 @@ java_library_host {
     ],
 }
 
+java_test_host {
+    name: "jarjar-tests",
+    srcs: ["src/test/**/*.java"],
+    static_libs: [
+        "jarjar",
+        "junit",
+    ],
+    java_resource_dirs: ["src/test"],
+}
+
 //#################################################
 
 java_import_host {
