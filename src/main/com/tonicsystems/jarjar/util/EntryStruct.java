@@ -16,6 +16,9 @@
 
 package com.tonicsystems.jarjar.util;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 public class EntryStruct {
   public byte[] data;
   public String name;
@@ -31,5 +34,26 @@ public class EntryStruct {
       return false;
     }
     return true;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+
+    if (!(other instanceof EntryStruct)) {
+      return false;
+    }
+
+    EntryStruct that  = (EntryStruct) other;
+    return this.name.equals(that.name) &&
+        Arrays.equals(this.data, that.data) &&
+        this.time == that.time;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(Arrays.hashCode(data), name, time);
   }
 }
