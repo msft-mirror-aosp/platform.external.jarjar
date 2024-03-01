@@ -21,8 +21,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
@@ -34,7 +34,7 @@ public final class StandaloneJarProcessor {
     JarFile in = new JarFile(from);
     final File tmpTo = File.createTempFile("jarjar", ".jar");
     JarOutputStream out = new JarOutputStream(new FileOutputStream(tmpTo));
-    Set<String> entries = new HashSet<>();
+    Map<String, EntryStruct> entries = new HashMap<>();
     try {
       EntryStruct struct = new EntryStruct();
       Enumeration<JarEntry> e = in.entries();
@@ -46,7 +46,8 @@ public final class StandaloneJarProcessor {
         IoUtil.pipe(in.getInputStream(entry), baos, buf);
         struct.data = baos.toByteArray();
         if (proc.process(struct)) {
-          if (entries.add(struct.name)) {
+          EntryStruct existEntry = entries.putIfAbsent(struct.name, struct);
+          if (existEntry == null) {
             entry = new JarEntry(struct.name);
             entry.setTime(struct.time);
             entry.setCompressedSize(-1);
@@ -54,7 +55,7 @@ public final class StandaloneJarProcessor {
             out.write(struct.data);
           } else if (struct.name.endsWith("/")) {
             // TODO(chrisn): log
-          } else {
+          } else if (!existEntry.equals(struct)) {
             throw new IllegalArgumentException("Duplicate jar entries: " + struct.name);
           }
         }
