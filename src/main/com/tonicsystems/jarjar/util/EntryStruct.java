@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2007 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,12 +16,44 @@
 
 package com.tonicsystems.jarjar.util;
 
-import java.io.InputStream;
-import java.io.File;
+import java.util.Arrays;
+import java.util.Objects;
 
-public class EntryStruct
-{
-    public byte[] data;
-    public String name;
-    public long time;
+public class EntryStruct {
+  public byte[] data;
+  public String name;
+  public long time;
+
+  /** Returns true if the entry is a class file. */
+  public boolean isClass() {
+    if (!name.endsWith(".class")) {
+      return false;
+    }
+    if (name.startsWith("META-INF/version")) {
+      // TODO(b/69678527): handle multi-release jar files
+      return false;
+    }
+    return true;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+
+    if (!(other instanceof EntryStruct)) {
+      return false;
+    }
+
+    EntryStruct that  = (EntryStruct) other;
+    return this.name.equals(that.name) &&
+        Arrays.equals(this.data, that.data) &&
+        this.time == that.time;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(Arrays.hashCode(data), name, time);
+  }
 }
