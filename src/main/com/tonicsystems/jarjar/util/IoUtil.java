@@ -16,6 +16,7 @@
 
 package com.tonicsystems.jarjar.util;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -46,7 +47,7 @@ class IoUtil {
 
   public static void copy(File from, File to, byte[] buf) throws IOException {
     try (InputStream in = new FileInputStream(from);
-        OutputStream out = new FileOutputStream(to)) {
+        OutputStream out = new BufferedOutputStream(new FileOutputStream(to))) {
       pipe(in, out, buf);
     }
   }
@@ -63,7 +64,7 @@ class IoUtil {
     final byte[] buf = new byte[0x2000];
 
     final ZipFile inputZip = new ZipFile(inputFile);
-    final ZipOutputStream outputStream = new ZipOutputStream(new FileOutputStream(outputFile));
+    final ZipOutputStream outputStream = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
     try {
       // read a the entries of the input zip file and sort them
       final Enumeration<? extends ZipEntry> e = inputZip.entries();

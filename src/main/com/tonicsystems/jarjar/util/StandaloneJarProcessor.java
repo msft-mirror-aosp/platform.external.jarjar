@@ -16,6 +16,7 @@
 
 package com.tonicsystems.jarjar.util;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -33,7 +34,7 @@ public final class StandaloneJarProcessor {
 
     JarFile in = new JarFile(from);
     final File tmpTo = File.createTempFile("jarjar", ".jar");
-    JarOutputStream out = new JarOutputStream(new FileOutputStream(tmpTo));
+    JarOutputStream out = new JarOutputStream(new BufferedOutputStream(new FileOutputStream(tmpTo)));
     Map<String, EntryStruct> entries = new HashMap<>();
     try {
       EntryStruct struct = new EntryStruct();
