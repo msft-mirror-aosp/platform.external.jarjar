@@ -29,18 +29,40 @@ import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 
 public final class StandaloneJarProcessor {
+  // ANDROID-BEGIN: b/383559945 Support sharding
   public static void run(File from, File to, JarProcessor proc) throws IOException {
+    run(from, to, proc, 1, 0);
+  }
+
+  public static void run(File from, File to, JarProcessor proc, int totalShards, int shardIndex) throws IOException {
+  // ANDROID-END: b/383559945 Support sharding
     byte[] buf = new byte[0x2000];
 
     JarFile in = new JarFile(from);
     final File tmpTo = File.createTempFile("jarjar", ".jar");
     JarOutputStream out = new JarOutputStream(new BufferedOutputStream(new FileOutputStream(tmpTo)));
     Map<String, EntryStruct> entries = new HashMap<>();
+
+    // ANDROID-BEGIN: b/383559945 Support sharding
+    final int numItems = in.size();
+    final int shardStart = numItems * shardIndex / totalShards;
+    final int shardNextStart = numItems * (shardIndex + 1) / totalShards;
+    int index = -1;
+    // ANDROID-END: b/383559945 Support sharding
+
     try {
       EntryStruct struct = new EntryStruct();
       Enumeration<JarEntry> e = in.entries();
       while (e.hasMoreElements()) {
         JarEntry entry = e.nextElement();
+
+        // ANDROID-BEGIN: b/383559945 Support sharding
+        index++;
+        if (index < shardStart || index >= shardNextStart) {
+          continue;
+        }
+        // ANDROID-END: b/383559945 Support sharding
+
         struct.name = entry.getName();
         struct.time = entry.getTime();
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
